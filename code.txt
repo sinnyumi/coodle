@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>교실 전용 한글 워들(꼬들) 배틀</title>
+    <title>교실 전용 실시간 꼬들 배틀</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; background-color: #121213; color: white; text-align: center; margin: 0; padding: 10px; }
         .hidden { display: none !important; }
-        /* 게임 화면 스타일 */
         #game-container { max-width: 500px; margin: 0 auto; }
         .grid { display: grid; grid-template-rows: repeat(6, 1fr); gap: 5px; margin: 20px auto; max-width: 350px; }
         .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
@@ -17,21 +16,20 @@
         .absent { background-color: #3a3a3c !important; border-color: #3a3a3c !important; }
         .key-row { display: flex; justify-content: center; gap: 4px; margin: 5px 0; }
         .key { background-color: #818384; font-weight: bold; border: 0; padding: 12px 8px; color: white; border-radius: 4px; cursor: pointer; user-select: none; flex: 1; }
-        /* 전광판 스타일 */
         #admin-container { max-width: 800px; margin: 20px auto; background-color: #1a1a1a; padding: 20px; border-radius: 10px; border: 2px solid #2563eb; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 1.2rem; }
         th, td { padding: 12px; border-bottom: 1px solid #333; }
         th { background-color: #2563eb; color: white; }
-        tr:nth-child(1) { color: #ffd700; font-weight: bold; font-size: 1.4rem; } /* 1등 금색 */
+        tr:nth-child(1) { color: #ffd700; font-weight: bold; font-size: 1.4rem; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 닉네임 입력 화면 (학생용) -->
+    <!-- 1. 로그인 화면 -->
     <div id="login-container">
-        <h2>한글 워들 대결방 입장</h2>
-        <input type="text" id="nickname-input" placeholder="이름이나 모둠명을 적으세요" style="padding: 10px; font-size: 1rem; width: 200px; text-align: center;"><br><br>
-        <button onclick="startGame()" style="padding: 10px 20px; font-size: 1rem; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">게임 시작!</button>
+        <h2>실시간 한글 워들 대결방</h2>
+        <input type="text" id="nickname-input" placeholder="이름이나 모둠명" style="padding: 10px; font-size: 1rem; width: 200px; text-align: center;"><br><br>
+        <button onclick="startGame()" style="padding: 10px 20px; font-size: 1rem; background-color: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">대결 입장</button>
     </div>
 
     <!-- 2. 학생용 게임 화면 -->
@@ -42,14 +40,11 @@
         <div id="keyboard"></div>
     </div>
 
-    <!-- 3. 교사용 실시간 순위 전광판 -->
+    <!-- 3. 교사용 실시간 자동 순위 전광판 -->
     <div id="admin-container" class="hidden">
-        <h1>🏆 실시간 한글 워들(꼬들) 순위판 🏆</h1>
-        <p style="color: #aaa;">학생이 성공 창을 교사에게 보여주면, 교사가 아래에 이름을 입력해 확정합니다.</p>
-        <input type="text" id="success-player" placeholder="성공한 학생 이름 입력" style="padding: 10px; font-size: 1.1rem;">
-        <input type="number" id="success-attempts" placeholder="시도 횟수" style="padding: 10px; font-size: 1.1rem; width: 80px;">
-        <button onclick="addLeaderboard()" style="padding: 10px 20px; font-size: 1.1rem; background-color: #538d4e; color: white; border: none; cursor: pointer;">순위 등록</button>
-        
+        <h1>🏆 실시간 Kordle 배틀 순위판 (자동 연동) 🏆</h1>
+        <p style="color: #6366f1; font-weight: bold;">새로고침 안 해도 학생들이 맞히면 실시간으로 등수가 바뀝니다!</p>
+        <button onclick="clearDatabase()" style="background-color: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">기록 초기화(새 게임)</button>
         <table>
             <thead>
                 <tr><th>순위</th><th>이름</th><th>시도 횟수</th><th>소요 시간</th></tr>
@@ -58,12 +53,16 @@
         </table>
     </div>
 
-    <script>
-        // 💡 [교사 설정 구역] 오늘의 정답 단어를 자모음으로 분리해서 적어주세요! (정확히 6칸이어야 합니다)
-        // 예: '기말고사' -> ㄱㅣㅁㅏㄹㄱㅗㅅㅏ (X, 8칸이라 안됨)
-        // 추천: 3글자 받침 없는 단어 (나무위키 -> ㄴㅏㅁㅜㅇㅜㅣ 6칸) 또는 2글자 받침 있는 단어 (수업 -> ㅅㅜㅇㅓㅂㅂ 6칸 채우기 등)
-        // 여기서는 예시로 '공부하자' -> ㄱㅗㅇㅂㅜㅎㅏㅈㅏ 총 8칸이므로, 딱 6칸짜리 단어인 "과과학ㄱ" (ㄱㅘㄱㅘㅎㅏㄱ) 등으로 세팅합니다.
-        const ANSWER = ['ㄱ', 'ㅗ', 'ㅇ', 'ㅊ  ', 'ㅐ', 'ㄱ']; // 예시 정답: 공책 (ㄱㅗㅇㅊㅐㄱ - 6글자)
+    <script type="module">
+        // 초간단 실시간 무료 DB 연동 (선생님이 세팅할 필요 없음!)
+        import { Datashare } from 'https://cdn.jsdelivr.net/npm/datashare-client@1.0.1/dist/datashare-client.js';
+        
+        // 고유한 교실 방 ID 자동 생성 (선생님 깃허브 주소 기반)
+        const roomID = btoa(window.location.hostname + window.location.pathname).replace(/=/g, '');
+        const share = new Datashare(roomID);
+
+        // 💡 [교사 정답 설정] 정확히 6칸 자모음 분리 (예: '공책' -> ㄱㅗㅇㅊㅐㄱ)
+        const ANSWER = ['ㄱ', 'ㅗ', 'ㅇ', 'ㅊ', 'ㅐ', 'ㄱ']; 
         
         let nickname = "";
         let startTime, timerInterval;
@@ -71,151 +70,110 @@
         let currentTile = 0;
         let guesses = Array(6).fill().map(() => Array(6).fill(""));
 
-        // 주소창에 ?admin=true 가 붙어있으면 교사용 전광판으로 변신!
+        // 전광판 화면 전환 규칙 설정
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('admin') === 'true') {
-            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('login-container').className = 'hidden';
+            document.getElementById('admin-container').className = 'hidden';
             document.getElementById('admin-container').classList.remove('hidden');
-            updateLeaderboardView();
+            
+            // 데이터 실시간 감시 시작
+            share.on('change', (data) => {
+                updateLeaderboardView(data);
+            });
+            // 최초 데이터 수신
+            updateLeaderboardView(share.get());
         }
 
-        // 보드판 생성
+        // 보드판 및 키보드 초기화
         const board = document.getElementById('board');
         for (let i = 0; i < 6; i++) {
-            const row = document.createElement('div');
-            row.className = 'row';
+            const row = document.createElement('div'); row.className = 'row';
             for (let j = 0; j < 6; j++) {
-                const tile = document.createElement('div');
-                tile.className = 'tile';
-                tile.id = `tile-${i}-${j}`;
-                row.appendChild(tile);
+                const tile = document.createElement('div'); tile.className = 'tile'; tile.id = `tile-${i}-${j}`; row.appendChild(tile);
             }
             board.appendChild(row);
         }
-
-        // 키보드 생성 (한글 자모음)
-        const keys = [
-            ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
-            ['ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ', 'ㅐ', 'ㅔ'],
-            ['ENTER', 'BACK']
-        ];
+        const keys = [['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'],['ㅏ','ㅑ','ㅓ','ㅕ','ㅗ','ㅛ','ㅜ','ㅠ','ㅡ','ㅣ','ㅐ','ㅔ'],['ENTER','BACK']];
         const keyboard = document.getElementById('keyboard');
         keys.forEach(row => {
-            const keyRow = document.createElement('div');
-            keyRow.className = 'key-row';
+            const keyRow = document.createElement('div'); keyRow.className = 'key-row';
             row.forEach(key => {
-                const button = document.createElement('button');
-                button.className = 'key';
-                button.textContent = key;
-                button.onclick = () => handleKeyPress(key);
-                keyRow.appendChild(button);
+                const button = document.createElement('button'); button.className = 'key'; button.textContent = key;
+                button.onclick = () => window.handleKeyPress(key); keyRow.appendChild(button);
             });
             keyboard.appendChild(keyRow);
         });
 
-        function startGame() {
+        window.startGame = function() {
             nickname = document.getElementById('nickname-input').value.trim();
             if (!nickname) return alert("이름을 입력해 주세요!");
             document.getElementById('login-container').classList.add('hidden');
             document.getElementById('game-container').classList.remove('hidden');
-            document.getElementById('player-info').textContent = `${nickname} 님의 플레이 화면`;
-            
+            document.getElementById('player-info').textContent = `${nickname} 님 플레이 중...`;
             startTime = new Date();
             timerInterval = setInterval(() => {
-                const now = new Date();
-                const diff = Math.floor((now - startTime) / 1000);
-                document.getElementById('timer').textContent = `시간: ${diff}초`;
+                document.getElementById('timer').textContent = `시간: ${Math.floor((new Date() - startTime) / 1000)}초`;
             }, 1000);
         }
 
-        function handleKeyPress(key) {
-            if (key === 'BACK') {
-                if (currentTile > 0) {
-                    currentTile--;
-                    guesses[currentRow][currentTile] = "";
-                    document.getElementById(`tile-${currentRow}-${currentTile}`).textContent = "";
-                }
+        window.handleKeyPress = function(key) {
+            if (key === 'BACK' && currentTile > 0) {
+                currentTile--; guesses[currentRow][currentTile] = ""; document.getElementById(`tile-${currentRow}-${currentTile}`).textContent = "";
             } else if (key === 'ENTER') {
-                if (currentTile === 6) {
-                    checkRow();
-                } else {
-                    alert("6글자를 모두 채워야 합니다!");
-                }
-            } else {
-                if (currentTile < 6) {
-                    guesses[currentRow][currentTile] = key;
-                    document.getElementById(`tile-${currentRow}-${currentTile}`).textContent = key;
-                    currentTile++;
-                }
+                if (currentTile === 6) checkRow(); else alert("6글자를 다 채우세요!");
+            } else if (currentTile < 6 && key !== 'BACK' && key !== 'ENTER') {
+                guesses[currentRow][currentTile] = key; document.getElementById(`tile-${currentRow}-${currentTile}`).textContent = key; currentTile++;
             }
         }
 
         function checkRow() {
             const currentGuess = guesses[currentRow];
             let correctCount = 0;
-
             for (let i = 0; i < 6; i++) {
                 const tile = document.getElementById(`tile-${currentRow}-${i}`);
-                const letter = currentGuess[i];
-
-                if (ANSWER[i] === letter) {
-                    tile.classList.add('correct');
-                    correctCount++;
-                } else if (ANSWER.includes(letter)) {
-                    tile.classList.add('present');
-                } else {
-                    tile.classList.add('absent');
-                }
+                if (ANSWER[i] === currentGuess[i]) { tile.classList.add('correct'); correctCount++; }
+                else if (ANSWER.includes(currentGuess[i])) tile.classList.add('present');
+                else tile.classList.add('absent');
             }
-
             if (correctCount === 6) {
                 clearInterval(timerInterval);
                 const finalTime = Math.floor((new Date() - startTime) / 1000);
-                alert(`🎉 정답입니다! 🎉\n소요시간: ${finalTime}초\n시도횟수: ${currentRow + 1}회\n\n선생님 화면에 등록을 요청하세요!`);
+                
+                // 🚀 자동으로 실시간 데이터 전송!
+                let currentResults = share.get() || {};
+                currentResults[nickname] = { name: nickname, attempts: currentRow + 1, time: finalTime };
+                share.set(currentResults);
+                
+                alert(`축하합니다! 정답입니다!\n기록이 교실 전광판에 즉시 자동 등록되었습니다.`);
             } else {
-                currentRow++;
-                currentTile = 0;
-                if (currentRow === 6) {
-                    clearInterval(timerInterval);
-                    alert("아쉽게도 실패했습니다! 정답을 다시 추리해 보세요.");
-                }
+                currentRow++; currentTile = 0;
+                if (currentRow === 6) { clearInterval(timerInterval); alert("실패했습니다! 다음 기회에.."); }
             }
         }
 
-        // [교사용 시스템] 로컬스토리지 활용 실시간 스코어보드
-        function addLeaderboard() {
-            const name = document.getElementById('success-player').value.trim();
-            const attempts = document.getElementById('success-attempts').value;
-            if (!name || !attempts) return alert("이름과 시도 횟수를 적어주세요!");
-
-            // 학생 화면에 떠 있는 시간 측정값을 확인하는 대안 (현장 구두 확인용 혹은 로컬 수동 입력)
-            const timeSeconds = prompt(`${name} 학생의 화면에 표시된 '소요 시간(초)'을 입력하세요:`);
-            
-            let ranks = JSON.parse(localStorage.getItem('kordle_ranks') || '[]');
-            ranks.push({ name, attempts: parseInt(attempts), time: parseInt(timeSeconds) });
-            
-            // 순위 정렬 규칙: 시도 횟수 적은 순 -> 시간 짧은 순
-            ranks.sort((a, b) => a.attempts !== b.attempts ? a.attempts - b.attempts : a.time - a.time);
-            
-            localStorage.setItem('kordle_ranks', JSON.stringify(ranks));
-            updateLeaderboardView();
-            
-            document.getElementById('success-player').value = "";
-            document.getElementById('success-attempts').value = "";
-        }
-
-        function updateLeaderboardView() {
-            const ranks = JSON.parse(localStorage.getItem('kordle_ranks') || '[]');
+        function updateLeaderboardView(data) {
             const tbody = document.getElementById('leaderboard-rows');
             tbody.innerHTML = "";
-            ranks.forEach((p, idx) => {
+            if (!data) return;
+            
+            let players = Object.values(data);
+            players.sort((a, b) => a.attempts !== b.attempts ? a.attempts - b.attempts : a.time - b.time);
+            
+            players.forEach((p, idx) => {
                 tbody.innerHTML += `<tr>
-                    <td>${idx + 1}등</td>
+                    <td>${idx + 1}등 🏆</td>
                     <td>${p.name}</td>
                     <td>${p.attempts}회</td>
                     <td>${p.time}초</td>
                 </tr>`;
             });
+        }
+
+        window.clearDatabase = function() {
+            if(confirm("정말 모든 순위 기록을 초기화하시겠습니까?")) {
+                share.set({});
+            }
         }
     </script>
 </body>
